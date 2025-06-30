@@ -3,14 +3,59 @@ const RAILCARDS = Object.freeze({
     SAVER_16_17: "16-17 saver",
     SENIOR: "Senior railcard"
 })
-
-console.log(getTicket(103, false, true, 100, 10, 0, []))
+const GROUP_TICKET = Object.freeze({
+    DUO: "Duo",
+    FAMILY: "Family",
+    CROWD: "Crowd"
+})
+let distance = 160;
+let isReturn = true;
+let isFirst = true;
+let cap = 80;
+let numpassenger = 1;
+let numchild = 0;
+let railcard = [];
+let grouptick = null;
+// console.log(getTicket(distance, isFirst, isReturn, cap, numpassenger, numchild, railcard, grouptick))
 document.getElementById("site-heading").textContent = "(Not so) Great British Railways"
 document.getElementById("journey-heading").textContent = "Plan a journey"
+document.getElementById("submit-info").onclick = function () {
+    if (document.getElementById("distance").value == ""){
+        document.getElementById("information-entry-error").textContent = "Please enter a proper number";
+        return;
+    }
+    if (Number(document.getElementById("distance").value) < 0){
+        document.getElementById("information-entry-error").textContent = "Please enter a non-negative number";
+        return;
+    }
+    if (document.querySelector('input[name="single-return"]:checked') == null){
+        document.getElementById("information-entry-error").textContent = "Please select single or return";
+        return;
+    }
+    if (document.querySelector('input[name="standard-first"]:checked') == null){
+        document.getElementById("information-entry-error").textContent = "Please select standard or first class";
+        return; 
+    }
+    if (document.getElementById("congestion").value == ""){
+        document.getElementById("information-entry-error").textContent = "Please enter a proper number";
+        return;
+    }
+    if (Number(document.getElementById("congestion").value) < 0 || 
+    Number(document.getElementById("congestion").value) > 100){
+        document.getElementById("information-entry-error").textContent = "Please enter a number between 0 and 100";
+        return;
+    }
+    document.getElementById("information-entry-error").textContent = "";
+    distance = document.getElementById("distance").value;
+    isReturn = document.querySelector('input[name="single-return"]:checked').value == "return";
+    isFirst = document.querySelector('input[name="standard-first"]:checked').value == "first";
+    cap = document.getElementById("congestion").value;
+    console.log(getTicket(distance, isReturn, isFirst, cap, numpassenger, numchild, railcard, grouptick));
+}
 
 
-function getTicket(distance, isFirst, isReturn, cap, numpassenger, numchild, railcard){
-    let price = GetIntegral(distance);
+function getTicket(distance, isReturn, isFirst, cap, numpassenger, numchild, railcard, grouptick){
+    let price = CalcBaseFare(distance);
     const FIRST = 1.5;
     const RETURN = 1.5;
     let fullmult = 1;
@@ -23,13 +68,24 @@ function getTicket(distance, isFirst, isReturn, cap, numpassenger, numchild, rai
     numpassenger -= railcard.length;
     const CHILD = 0.7;
     total += price*numpassenger + price*CHILD*numchild;
-    total *= CalcGroupTicket(numpassenger + numchild + railcard.length);
+    if (grouptick != null){
+        total *= CalcGroupTicket(grouptick);
+    }
+    else{
+        total *= MultiPassenger(numpassenger + numchild + railcard.length);
+    }
     total = Math.round(total*10)/10;
-    return total.toFixed(2);
+    total = total.toFixed(2);
+    let outmsg = total + " ";
+    if (isFirst) {outmsg = outmsg + "First class ";}
+    if (isReturn) {outmsg = outmsg + "return";}
+    else {outmsg = outmsg + "single"}
+    return outmsg;
+
 
 }
 
-function GetIntegral(x){
+function CalcBaseFare(x){
     let total = 0;
     for (let i = 1; i < x*10; i++) {
         total += 0.5*2*Func(i/10)*0.1;        
@@ -43,7 +99,7 @@ function Func(x){
 }
 
 function CalcCongestion(cap){
-    return 1.25-0.5/(Math.exp((cap-50)/8)+1);
+    return 1.3-0.6/(Math.exp((cap-50)/10)+1);
 }
 
 function CalcRailcard(railcard, price){
@@ -54,7 +110,7 @@ function CalcRailcard(railcard, price){
                 total += price * 2.0/3.0;
                 return total;
             case RAILCARDS.SENIOR:
-                total += price * 2.0/3.0;
+                total += price * 1.0/3.0;
                 return total;
             case RAILCARDS.SAVER_16_17:
                 total += price * 0.5;
@@ -66,15 +122,20 @@ function CalcRailcard(railcard, price){
     return total;
 }
 
-function CalcGroupTicket(numpassenger){
-    if (numpassenger == 1){
-        return 1;
+function CalcGroupTicket(grouptick){
+    switch(grouptick){
+        case GROUP_TICKET.DUO:
+            return 2.0/3.0;
+        case GROUP_TICKET.FAMILY:
+            return 0.5;
+        case GROUP_TICKET.CROWD:
+            return 0.4;
+        default:
+            return 1;
     }
-    if (numpassenger == 2){
-        return 2.0/3.0;
-    }
-    if (numpassenger >= 3 && numpassenger < 6){
-        return 0.5;
-    }
-    return 2.0/5.0;
+}
+
+function MultiPassenger(numpassenger){
+    const SCALE = 0.9
+    return (1-Math.pow(SCALE,numpassenger)) / ((1-SCALE)*numpassenger);
 }

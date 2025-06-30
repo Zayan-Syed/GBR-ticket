@@ -10,18 +10,24 @@
     <h1 id="site-heading"></h1>
     <h2 id="journey-heading"></h2>
     <label>Enter Distance: </label>
-    <input type="number" id="distance">
-    <br/>
+    <input type="number" id="distance" min="0">
+    <br/><br/>
     <label>Single: </label>
-    <input type="radio" name="single-return" id="single-return" value="">
+    <input type="radio" name="single-return" id="single-return" value="single">
     <label>Return: </label>
-    <input type="radio" name="single-return" id="single-return" value="">
-    <br/>
+    <input type="radio" name="single-return" id="single-return" value="return">
+    <br/><br/>
     <label>Standard Class: </label>
-    <input type="radio" name="standard-first" id="standard-first" value="">
+    <input type="radio" name="standard-first" id="standard-first" value="standard">
     <label>First Class: </label>
-    <input type="radio" name="standard-first" id="standard-first" value="">
-    <p id="test-pricing"></p>
+    <input type="radio" name="standard-first" id="standard-first" value="first">
+    <br/><br/>
+    <label>Expected level of congestion(%): </label>
+    <input type="number" id="congestion" min="0" max="100">
+    <br/><br/>
+    <button id="submit-info">submit</button>
+    <br/><br/>
+    <p id="information-entry-error"></p>
     <script src="index.js"></script>
 </body>
 </html>
