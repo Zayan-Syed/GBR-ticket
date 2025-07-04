@@ -1,8 +1,10 @@
+import { parse } from "/csv-parse";
 const RAILCARDS = Object.freeze({
     OFFPEAK: "Off peak railcard",
     SAVER_16_17: "16-17 saver",
     SENIOR: "Senior railcard",
     TOURIST: "Tourist railcard",
+    WORKING: "Work railcard",
     DISABILITY: "Disabled persons railcard",
 })
 const GROUP_TICKET = Object.freeze({
@@ -22,6 +24,7 @@ let grouptick = null;
 document.getElementById("site-heading").textContent = "(Not so) Great British Railways"
 document.getElementById("journey-heading").textContent = "Plan a journey"
 
+//Reading csv file
 const passenger_no = document.getElementById("passenger-no");
 const child_no = document.getElementById("child-no");
 //Checks that the passenger count is at least one and less than or equal to 12
@@ -88,6 +91,7 @@ document.getElementById("select-offpeak").value = RAILCARDS.OFFPEAK;
 document.getElementById("select-16-17").value = RAILCARDS.SAVER_16_17;
 document.getElementById("select-senior").value = RAILCARDS.SENIOR;
 document.getElementById("select-tourist").value = RAILCARDS.TOURIST;
+document.getElementById("select-working").value = RAILCARDS.WORKING;
 document.getElementById("select-disabled").value = RAILCARDS.DISABILITY;
 //Adds the railcard dropdown menu into an array
 let railcardlist = [];
@@ -263,6 +267,9 @@ function CalcRailcard(railcard, price){
             case RAILCARDS.TOURIST:
                 total += price * 2.0/3.0;
                 continue;
+            case RAILCARDS.WORKING:
+                total += price * 3.0/4.0;
+                continue;
             case RAILCARDS.DISABILITY:
                 total += price * 1.0/3.0;
                 continue;
@@ -294,13 +301,16 @@ function MultiPassenger(numpassenger){
 
 /*
 Congestion pricing:
+    Day = Weekday ~
     Timing = 6:00 - 9:00 + 16:00 - 19:00 -> 80%-70%
-    Timing = 22:00 - 5:00 -> 10%
-    else (9:00 - 16:00 + 19:00 - 22:00) -> 40%-20%
+    Timing = 22:00 - 00:00 + 00:00 - 5:00 -> 10%
+    else (9:00 - 16:00 + 19:00 - 22:00 + 5:00 - 6:00) -> 40%-20%
     (these may also be ranges with midpoints at 7:30 , 17:30)
 
-    Day = Weekday -> *1
-    Day = Weekend + public holiday -> *0.5
+    Day = Weekend + public holiday ~
+    Timing = 10:00 - 14:00 + 18:00 - 20:00 -> 30%
+    Timing = 22:00 + 00:00 + 8:00 -> 10%
+    else (14:00 - 18:00 + 20:00 - 22:00 + 8:00 - 10:00) -> 20% 
 
     For return average out the calculated congestion pricing for both journey date and return date
 
@@ -312,5 +322,7 @@ Congestion pricing:
     Start/End = 5 -> 1
     Start/End = 4-3 -> 0.7
     Start/End = 2-1 -> 0.5
+
+    
 
 */
