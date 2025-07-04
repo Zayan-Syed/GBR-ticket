@@ -1,4 +1,5 @@
-import { parse } from "/csv-parse";
+//import Papa from "papaparse";
+
 const RAILCARDS = Object.freeze({
     OFFPEAK: "Off peak railcard",
     SAVER_16_17: "16-17 saver",
@@ -25,6 +26,19 @@ document.getElementById("site-heading").textContent = "(Not so) Great British Ra
 document.getElementById("journey-heading").textContent = "Plan a journey"
 
 //Reading csv file
+let stationlist = []
+await fetch("GB stations.csv").then(Response => Response.text())
+.then(data => {
+    const lines = data.split("\n");
+    const array = lines.map(line => line.split(","))
+    for (let i=0; i<array.length; i++){
+        stationlist.push(array[i])
+    }
+})
+.catch(error => console.error("An error occurred:",error));
+
+console.log(stationlist);
+
 const passenger_no = document.getElementById("passenger-no");
 const child_no = document.getElementById("child-no");
 //Checks that the passenger count is at least one and less than or equal to 12
