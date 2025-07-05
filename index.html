@@ -10,10 +10,18 @@
     <h1 id="site-heading"></h1>
     <h2 id="journey-heading"></h2>
     <form id="ticketing-info">
-        <div id="start+end destination placement"></div>
         <div>
-            <label>Enter Distance: </label>
-            <input type="number" id="distance" min="0" required>
+            <label>Start destination: </label>
+            <input list="start-destination" id="start-input" required/>
+            <datalist id="start-destination">
+            </datalist>
+
+            <label>End destination: </label>
+            <input list="end-destination" id="end-input" required/>
+            <datalist id="end-destination">
+            </datalist>
+            <br/>
+            <p id="station-name-error" hidden></p>
         </div>
         <br/>
         <div>

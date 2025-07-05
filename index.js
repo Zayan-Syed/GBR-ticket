@@ -1,4 +1,3 @@
-//import Papa from "papaparse";
 
 const RAILCARDS = Object.freeze({
     OFFPEAK: "Off peak railcard",
@@ -13,6 +12,22 @@ const GROUP_TICKET = Object.freeze({
     FAMILY: "Family",
     CROWD: "Crowd"
 })
+
+//Station object to better handle the csv attributes
+class Station {
+    constructor(name, postcode, latitude, longitude, tlc, nlc, owner, entry_exit, interchange){
+        this.name = name;
+        this.postcode = postcode;
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.tlc = tlc;
+        this.nlc = nlc;
+        this.owner = owner;
+        this.entry_exit = entry_exit;
+        this.interchange = interchange;
+    }
+}
+
 //Delete and assign later once finished
 let distance = 30;
 let isReturn = true;
@@ -32,12 +47,29 @@ await fetch("GB stations.csv").then(Response => Response.text())
     const lines = data.split("\n");
     const array = lines.map(line => line.split(","))
     for (let i=0; i<array.length; i++){
-        stationlist.push(array[i])
+        if (i == 0) {continue;}
+        //Converts the two dimentional array to a list of station objects to more easily 
+        // access the attributes of the station rather than memorising an index
+        stationlist.push(new Station(array[i][0],array[i][1], array[i][2],array[i][3], array[i][4], 
+        array[i][5], array[i][6], array[i][7], array[i][8]));
     }
 })
 .catch(error => console.error("An error occurred:",error));
 
-console.log(stationlist);
+
+//Create list of station names
+let stationnames = [];
+for (let i=0; i<stationlist.length; i++){
+    stationnames.push(stationlist[i].name);
+}
+
+//Constructing start and end destination dropdown menus
+for (let i=0; i<stationnames.length; i++){
+    let current = document.createElement("option");
+    current.value = stationnames[i];
+    document.getElementById("start-destination").appendChild(current);
+    document.getElementById("end-destination").appendChild(current.cloneNode());
+}
 
 const passenger_no = document.getElementById("passenger-no");
 const child_no = document.getElementById("child-no");
@@ -152,7 +184,8 @@ const myForm = document.getElementById("ticketing-info");
 myForm.addEventListener("submit", (e) => {
     e.preventDefault();
     if (errorSubmit()){ return;}
-    distance = Number(document.getElementById("distance").value);
+    distance = Number(getDistanceByStation(document.getElementById("start-input").value, 
+    document.getElementById("end-input").value));
     isReturn = document.querySelector('input[name="single-return"]:checked').value == "return";
     isFirst = document.querySelector('input[name="standard-first"]:checked').value == "first";
     cap = Number(document.getElementById("congestion").value);
@@ -167,6 +200,19 @@ myForm.addEventListener("submit", (e) => {
 })
 
 function errorSubmit(){
+    const start = document.getElementById("start-input").value;
+    const end = document.getElementById("end-input").value;
+    console.log(start);
+    console.log(end);
+    if (searchStation(start) == -1 || searchStation(end) == -1) {
+        document.getElementById("station-name-error").hidden = false;
+        document.getElementById("station-name-error").textContent = "That is not a valid station name";
+        return true;
+    }
+    else{
+        document.getElementById("station-name-error").hidden = true;
+    }
+
     let tot_passengers = Number(passenger_no.value) + Number(child_no.value);
     const group_ticket_error = document.getElementById("group-ticket-error");
     const group_ticket_selected = document.getElementById("select-group-ticket").value;
@@ -198,6 +244,28 @@ function errorSubmit(){
     }
     else{document.getElementById("railcard-error").hidden = true;}
     return false;
+}
+
+function getDistanceByStation(start, end){
+    let station1 = searchStation(start);
+    let station2 = searchStation(end);
+    let lat1 = stationlist[station1].latitude;
+    let lat2 = stationlist[station2].latitude;
+    let long1 = stationlist[station1].longitude;
+    let long2 = stationlist[station2].longitude;
+    
+    var radius = 3963;
+    var deglat = deg2rad(lat2-lat1);
+    var deglong = deg2rad(long2 - long1);
+    var a = Math.sin(deglat/2) * Math.sin(deglat / 2) + Math.cos(deg2rad(lat1)) * 
+    Math.cos(deg2rad(lat2)) * Math.sin(deglong/2) * Math.sin(deglong/2);
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    var d = radius * c;
+    return Math.ceil(d);   
+}
+
+function deg2rad(deg){
+    return deg * (Math.PI/180);
 }
 
 function convertRailcardArray(){
@@ -312,6 +380,31 @@ function MultiPassenger(numpassenger){
     const SCALE = 0.9
     return (1-Math.pow(SCALE,numpassenger)) / ((1-SCALE)*numpassenger);
 }
+
+/**
+ * Search algorithm that returns index in the station array based on a given station name
+ * @param {*} tosearch station to search
+ * @returns index of the given station or -1 if not found
+ */
+function searchStation(tosearch){
+    let start = 0;
+    let end = stationnames.length-1;
+    while (start <= end){
+        let mid = Math.floor((start + end) / 2);
+        if(stationnames[mid] === tosearch) {
+            return mid;
+        }
+        else if (stationnames[mid] < tosearch) {
+            start = mid + 1;
+        }
+        else {
+            end = mid - 1;
+        }
+    }
+    return -1;
+}
+
+
 
 /*
 Congestion pricing:
