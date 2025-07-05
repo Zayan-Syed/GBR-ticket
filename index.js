@@ -63,7 +63,7 @@ for (let i=0; i<stationlist.length; i++){
     stationnames.push(stationlist[i].name);
 }
 
-//Constructing start and end destination dropdown menus
+//Constructs start and end destination dropdown menus
 for (let i=0; i<stationnames.length; i++){
     let current = document.createElement("option");
     current.value = stationnames[i];
@@ -71,9 +71,9 @@ for (let i=0; i<stationnames.length; i++){
     document.getElementById("end-destination").appendChild(current.cloneNode());
 }
 
+//Checks that the passenger count is at least one and less than or equal to 12
 const passenger_no = document.getElementById("passenger-no");
 const child_no = document.getElementById("child-no");
-//Checks that the passenger count is at least one and less than or equal to 12
 passenger_no.addEventListener("change" ,(e) => {
     //Sets a requirement of at least one passenger if the total passenger count is 0
     if (Number(passenger_no.value) + Number(child_no.value) < 1){
@@ -139,7 +139,8 @@ document.getElementById("select-senior").value = RAILCARDS.SENIOR;
 document.getElementById("select-tourist").value = RAILCARDS.TOURIST;
 document.getElementById("select-working").value = RAILCARDS.WORKING;
 document.getElementById("select-disabled").value = RAILCARDS.DISABILITY;
-//Adds the railcard dropdown menu into an array
+
+//Array to store railcard dropdowns
 let railcardlist = [];
 
 //Adds a railcard by adding it to the array when the button is pressed
@@ -246,6 +247,12 @@ function errorSubmit(){
     return false;
 }
 
+/**
+ * Calculates the distance between two stations given their names
+ * @param {*} start The start destination
+ * @param {*} end The end destination
+ * @returns The distance
+ */
 function getDistanceByStation(start, end){
     let station1 = searchStation(start);
     let station2 = searchStation(end);
@@ -271,7 +278,7 @@ function deg2rad(deg){
 function convertRailcardArray(){
     let modded_railcardlist = []
     for (let i=0; i<railcardlist.length; i++){
-        modded_railcardlist.push(railcardlist[0].children[0].value);
+        modded_railcardlist.push(railcardlist[i].children[0].value);
     }
     for (let i=0; i<modded_railcardlist.length; i++){
         const dropped_rc = railcardlist.pop();
