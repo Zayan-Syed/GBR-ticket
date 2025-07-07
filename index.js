@@ -37,7 +37,7 @@ let numpassenger = 1;
 let numchild = 1;
 let railcard = [];
 let grouptick = null;
-document.getElementById("site-heading").textContent = "(Not so) Great British Railways"
+document.getElementById("site-heading").textContent = "(fake) Great British Railways"
 document.getElementById("journey-heading").textContent = "Plan a journey"
 
 //Reading csv file
@@ -213,8 +213,8 @@ myForm.addEventListener("submit", (e) => {
     const END_STN = document.getElementById("end-input").value;
     const NUM_PASS = document.getElementById("passenger-no").value;
     const NUM_CHILD = document.getElementById("child-no").value;
-    const START_DATE = document.getElementById("start-date").value;
-    const END_DATE = document.getElementById("end-date").value;
+    const START_DATE = new Date(document.getElementById("start-date").value);
+    const END_DATE = new Date(document.getElementById("end-date").value);
     const ANYTIME = document.getElementById("anytime").checked;
     isReturn = document.querySelector('input[name="single-return"]:checked').value == "return";
     isFirst = document.querySelector('input[name="standard-first"]:checked').value == "first";
@@ -222,10 +222,16 @@ myForm.addEventListener("submit", (e) => {
     numchild = Number(NUM_CHILD);
     railcard = convertRailcardArray();
     grouptick = document.getElementById("select-group-ticket").value;
-    console.log(getTicket(START_STN, END_STN, isReturn, isFirst, START_DATE, END_DATE, ANYTIME, 
-        numpassenger, numchild, railcard, grouptick));
-    reset_missed();
+    let ticket_price = getTicket(START_STN, END_STN, isReturn, isFirst, START_DATE, END_DATE, ANYTIME, 
+        numpassenger, numchild, railcard, grouptick);
     document.getElementById("ticketing-info").reset();
+    reset_missed();
+    let full_log = deleete(getDistanceByStation(START_STN, END_STN), isReturn, isFirst, 
+    CalcCongestion(START_STN, END_STN, START_DATE, END_DATE),
+    numpassenger, numchild, railcard, grouptick);
+    console.log(full_log);
+    SubmitToPage(START_STN, END_STN, ticket_price, railcard, grouptick, numpassenger+numchild, START_DATE, 
+        END_DATE, ANYTIME, full_log);
 
 })
 
@@ -233,6 +239,7 @@ function reset_missed(){
     document.getElementById("remove-railcard").hidden = true;
     document.getElementById("end-date-div").hidden = true;
     document.getElementById("start-date").disabled = false;
+    
 }
 
 function errorSubmit(){
@@ -310,20 +317,8 @@ function deg2rad(deg){
 
 function convertRailcardArray(){
     let modded_railcardlist = []
-    let offpeak = checkOffpeak(new Date(document.getElementById("start-date").value), 
-    new Date(document.getElementById("end-date").value));
     for (let i=0; i<railcardlist.length; i++){
-        //checks that the offpeak and 16-17 saver railcards are actually being used during offpeak
-        if (!offpeak && (railcardlist[i].children[0].value == RAILCARDS.OFFPEAK || 
-            railcardlist[i].children[0].value == RAILCARDS.SAVER_16_17)) {
-            continue;
-        }
-        //Checks that the offpeak railcard isn't being used on an anytime ticket
-        if (document.getElementById("anytime").checked && railcardlist[i].children[0].value == RAILCARDS.OFFPEAK) {
-            continue;
-        }
-        modded_railcardlist.push(railcardlist[i].children[0].value);
-        
+        modded_railcardlist.push(railcardlist[i].children[0].value);        
     }
     for (let i=0; i<railcardlist.length; i++){
         const dropped_rc = railcardlist.pop();
@@ -403,7 +398,8 @@ function getWeekendExpected(date, distance){
 
 }
 
-function checkOffpeak(date1, date2) {
+
+function checkOffpeak(date1, date2, distance) {
     const BAD_DATE = "Invalid Date";
     if (String(date1) == BAD_DATE) {return true;}
     if (date1.getDay() == 0 || date1.getDay() == 6) {
@@ -413,6 +409,9 @@ function checkOffpeak(date1, date2) {
         return true && checkOffpeak(date2, BAD_DATE);
     }
     if (date1.getHours() >= 9 && date1.getHours() < 16) {
+        return true && checkOffpeak(date2, BAD_DATE);
+    }
+    if (distance > 100 && date1.getHours() >= 16) {
         return true && checkOffpeak(date2, BAD_DATE);
     }
     if (date1.getHours() > 19) {
@@ -436,23 +435,38 @@ function getPopularityMult(station){
     return popmult / avg;
 }
 
-function getTicket(start_location, end_location, isReturn, isFirst, start_date, end_date, anytime, numpassenger, numchild, railcard, grouptick){
+function SubmitToPage(start_station, end_station, price_output, railcard, grouptick, passengers, start_date, 
+    end_date, anytime, full_log) {
+    let railcard_string = outputRailcard(sortRailcard(railcard, 
+        getDistanceByStation(start_station, end_station), start_date, end_date, anytime));
+    console.log(railcard_string);
+    localStorage.setItem("start_loc", start_station);
+    localStorage.setItem("end_loc", end_station);
+    localStorage.setItem("price", price_output);
+    localStorage.setItem("railcard",railcard_string);
+    localStorage.setItem("group ticket", grouptick);
+    localStorage.setItem("passengers",passengers);
+    localStorage.setItem("start date",start_date);
+    localStorage.setItem("end date", end_date);
+    localStorage.setItem("full log", full_log);
+    window.location.replace("./output.html");
+}
+
+function getTicket(start_location, end_location, isReturn, isFirst, start_date, end_date, anytime, numpassenger, 
+    numchild, railcard, grouptick){
     let distance = Number(getDistanceByStation(start_location,end_location));
     let cap = CalcCongestion(start_location, end_location, new Date(start_date), new Date(end_date));    
-    deleete(distance, isReturn, isFirst, cap, numpassenger, numchild, railcard, grouptick);
-    console.log(getContactless(start_location, end_location, true, railcard, false));
-    console.log(getContactless(start_location, end_location, false, railcard, false));
     let price = CalcBaseFare(distance);
     const FIRST = 1.5;
     const RETURN = 1.5;
     let fullmult = 1;
     if (isFirst) {fullmult *= FIRST;}
     if (isReturn) {fullmult *= RETURN;}
-    if (anytime) {fullmult *= 4.0/3.0;}
+    if (anytime) {fullmult *= 1.3;}
     else {fullmult *= GetCongestionMult(cap);}
     price = price*fullmult;
     let total = 0;
-    total += CalcRailcard(railcard, price);
+    total += CalcRailcard(railcard, price, distance, start_date, end_date, anytime);
     numpassenger -= railcard.length;
     const CHILD = 0.7;
     total += price*numpassenger + price*CHILD*numchild;
@@ -467,15 +481,9 @@ function getTicket(start_location, end_location, isReturn, isFirst, start_date, 
     return outmsg;
 }
 
-function deleete(distance, isReturn, isFirst, cap, numpassenger, numchild, railcard, grouptick){
-    console.log(distance);
-    console.log(isReturn);
-    console.log(isFirst);
-    console.log(cap);
-    console.log(numpassenger);
-    console.log(numchild);
-    console.log(railcard);
-    console.log(grouptick);
+function deleete(distance, isReturn, isFirst, cap, numpassenger, numchild, railcard, grouptick){ 
+    return distance + "\n" + isReturn + "\n" + isFirst + "\n" + cap + "\n" + numpassenger + "\n" + 
+    numchild + "\n" + railcard + "\n" + grouptick;
 }
 
 function CalcBaseFare(x){
@@ -495,17 +503,30 @@ function GetCongestionMult(cap){
     return 1.3-0.6/(Math.exp((cap-50)/10)+1);
 }
 
-function CalcRailcard(railcard, price){
+function CalcRailcard(railcard, price, distance, start_date, end_date, anytime){
     let total = 0;
     for (let i = 0; i < railcard.length; i++) {
+        if (!checkRailcardValid(railcard[i], anytime, start_date, end_date, distance)) {
+            total += price;
+            continue;
+        }
         switch(railcard[i]){
             case RAILCARDS.OFFPEAK:
+                if (!checkOffpeak(start_date, end_date, distance)) { 
+                    total += price * 1; 
+                    continue;
+                }
                 total += price * 2.0/3.0;
                 continue;
             case RAILCARDS.SENIOR:
                 total += price * 1.0/3.0;
                 continue;
             case RAILCARDS.SAVER_16_17:
+                if (anytime) { 
+                    total += price * 1; 
+                    continue;
+                }
+                if (!checkOffpeak(start_date, end_date, distance)) total += price * 1;
                 total += price * 0.5;
                 continue;
             case RAILCARDS.TOURIST:
@@ -522,6 +543,55 @@ function CalcRailcard(railcard, price){
         }
     }
     return total;
+}
+
+function checkRailcardValid(railcard, anytime, start_date, end_date, distance) {
+    if (railcard == RAILCARDS.OFFPEAK && (anytime || checkOffpeak(start_date, end_date, distance))) {
+        return false;
+    }
+    if (railcard == RAILCARDS.SAVER_16_17 && (anytime || checkOffpeak(start_date, end_date, distance))) {
+        return false;
+    }
+    if (railcard == RAILCARDS.TOURIST && checkOffpeak(start_date, end_date, distance)) {
+        return false;
+    }
+    return true;
+
+}
+
+function sortRailcard(railcard, distance, start_date, end_date, anytime) {
+    let unique_railcard = [...new Set(railcard)];
+    let sorted_railcard = [];
+    for (let i=0; i<unique_railcard.length; i++) {
+        sorted_railcard.push([unique_railcard[i], 
+        railcard.filter((v) => (v === unique_railcard[i])).length]); 
+        if (checkRailcardValid(unique_railcard[i], anytime, start_date, end_date, distance)) {
+            sorted_railcard[i][1] = 0;
+        }
+    }
+    return sorted_railcard;
+}
+
+function outputRailcard(railcard) {
+    console.log(railcard);
+    let output="";
+    if (railcard.length == 0) {return output;}
+    for (let i=0; i<railcard.length-1; i++) {
+        if (Number(railcard[i][1]) == 0) {
+            output = output + railcard[i][0] + " *" + railcard[i][1] + " (invalid) " + "\n";
+        }
+        else {
+            output = output + railcard[i][0] + " *" + railcard[i][1] + "\n";
+        }
+    }
+    if (Number(railcard[railcard.length-1][1]) == 0) {
+        output = output + railcard[railcard.length-1][0] + " *" + 
+        railcard[railcard.length-1][1] + " (invalid) " + "\n";
+    }
+    else {
+        output += railcard[railcard.length-1][0] + " *" + railcard[railcard.length-1][1]
+    }
+    return output;
 }
 
 function CalcGroupTicket(grouptick, numpassenger){
@@ -566,13 +636,14 @@ function searchStation(tosearch){
     return -1;
 }
 
-function getContactless(start_location, end_location, ispeak, railcard, ischild) {
+function getContactless(start_location, end_location, ispeak, railcard) {
     let distance = Number(getDistanceByStation(start_location,end_location));
     let price = CalcBaseFare(distance);
     if (ispeak) { price *= 1.3; }
-    if (ischild) {price *= 0.5; }
-    else if (ispeak && (railcard[0] == RAILCARDS.SAVER_16_17 || railcard[0] == RAILCARDS.OFFPEAK)) {}
-    else if (railcard.length != 0) { price = CalcRailcard(railcard, price);}
+    if (railcard.length != 0) 
+    { 
+        price = CalcRailcard([railcard], price);
+    }
     price = Math.round(price*10)/10;
     price = price.toFixed(2);
     return price; 

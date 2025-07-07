@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Ticket</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h3 id="output-heading"></h3>
+    <h2 id="journey-destinations"></h2>
+    <div id="out-dates-div">
+        <p id="start-date"></p>
+        <p id="end-date"></p>
+    </div>
+    <div>
+        <p id="out-passengers"></p>
+    </div>
+    <div id="out-railcards-div">
+        <p id="out-railcards"></p>
+    </div>
+    <div id="out-group-ticket-div">
+        <p id="out-group-ticket"></p>
+    </div>
+    <div>
+        <p id="out-price"></p>
+    </div>
+    <div>
+        <input type="button" id="reset-planner" value="Go back to Journey planner">
+    </div>
+    <script>
+        let start_station = localStorage.getItem("start_loc");
+        let end_station = localStorage.getItem("end_loc");
+        let price = localStorage.getItem("price");
+        let railcards = localStorage.getItem("railcard");
+        let grouptick = localStorage.getItem("group ticket");
+        let passengers = localStorage.getItem("passengers");
+        let start_date = localStorage.getItem("start date");
+        let end_date = localStorage.getItem("end date");
+        let full_log = localStorage.getItem("full log");
+
+
+        document.getElementById("output-heading").textContent = "(fake) Great British Railways";
+        document.getElementById("journey-destinations").textContent = "Viewing journey " + 
+        start_station + " > " + end_station;
+        if (new Date(start_date) == "Invalid Date") {
+            document.getElementById("start-date").hidden = true;
+            document.getElementById("end-date").hidden = true;
+
+        }
+        else if (new Date(end_date) == "Invalid Date") {
+            document.getElementById("start-date").textContent = "Journey start: " + 
+            new Date(start_date).toLocaleString();
+            document.getElementById("end-date").hidden = true;
+
+        }
+        else {
+            document.getElementById("start-date").textContent = "Journey start: " + 
+            new Date(start_date).toLocaleString(); 
+            document.getElementById("end-date").textContent = "Journey end: " + new Date(end_date).toLocaleString();
+        }
+        let passenger_output = passengers + " passenger";
+        if (passengers > 1) {passenger_output = passenger_output + "s";}
+        document.getElementById("out-passengers").textContent = passenger_output;
+        if (railcards == "") {
+            document.getElementById("out-railcards-div").hidden = true;
+        }
+        else {
+            document.getElementById("out-railcards").textContent = railcards;
+        }
+        if (grouptick == "null") {
+            document.getElementById("out-group-ticket-div").hidden = true;
+        }
+        else {
+            document.getElementById("out-group-ticket").textContent = "Group ticket: " + grouptick;
+        }
+        document.getElementById("out-price").textContent = price;
+        console.log(full_log);
+        document.getElementById("reset-planner").onclick = function () {
+            window.location.replace("./index.html");
+        }
+
+    </script>
+</body>
+</html>
