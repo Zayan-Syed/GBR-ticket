@@ -26,9 +26,9 @@
         <br/>
         <div>
             <label>Single: </label>
-            <input type="radio" name="single-return" id="single-return" value="single" required>
+            <input type="radio" name="single-return" id="single" value="single" required>
             <label>Return: </label>
-            <input type="radio" name="single-return" id="single-return" value="return" required>
+            <input type="radio" name="single-return" id="return" value="return" required>
         </div>
         <br/>
         <div>
@@ -79,10 +79,17 @@
         </div>
         <br/>
         <div>
-            <label>Expected level of congestion (%): </label>
-            <input type="number" id="congestion" min="0" max="100" value="100" required>
+            <label>I'm leaving:</label>
+            <input type="datetime-local" id="start-date" required>
+            <label>Buy anytime ticket:</label>
+            <input type="checkbox" id="anytime">
         </div>
         <br/>
+        <div id="end-date-div" hidden>
+            <label>I'm returning:</label>
+            <input type="datetime-local" id="end-date">
+            <br><br/>
+        </div>
         <div>
             <input type="submit" id="submit-info" value="Submit">
         </div>

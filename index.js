@@ -71,6 +71,29 @@ for (let i=0; i<stationnames.length; i++){
     document.getElementById("end-destination").appendChild(current.cloneNode());
 }
 
+//Reveals return date option when return is selected
+document.getElementById("return").addEventListener("click", (e) => {
+    document.getElementById("end-date-div").hidden = false;
+    document.getElementById("end-date").required = true;
+})
+document.getElementById("single").addEventListener("click", (e) => {
+    document.getElementById("end-date-div").hidden = true;
+    document.getElementById("end-date").required = false;
+})
+
+//Disables start and return dates if anytime ticket is selected
+document.getElementById("anytime").addEventListener("click", (e) => {
+    if (document.getElementById("anytime").checked){
+        document.getElementById("start-date").disabled = true;
+        document.getElementById("end-date").disabled = true;
+    }
+    else {
+        document.getElementById("start-date").disabled = false;
+        document.getElementById("end-date").disabled = false;
+
+    }
+})
+
 //Checks that the passenger count is at least one and less than or equal to 12
 const passenger_no = document.getElementById("passenger-no");
 const child_no = document.getElementById("child-no");
@@ -181,30 +204,40 @@ document.getElementById("select-group-ticket").addEventListener("click", (e) => 
 
 
 
+
 const myForm = document.getElementById("ticketing-info");
 myForm.addEventListener("submit", (e) => {
     e.preventDefault();
     if (errorSubmit()){ return;}
-    distance = Number(getDistanceByStation(document.getElementById("start-input").value, 
-    document.getElementById("end-input").value));
+    const START_STN = document.getElementById("start-input").value;
+    const END_STN = document.getElementById("end-input").value;
+    const NUM_PASS = document.getElementById("passenger-no").value;
+    const NUM_CHILD = document.getElementById("child-no").value;
+    const START_DATE = document.getElementById("start-date").value;
+    const END_DATE = document.getElementById("end-date").value;
+    const ANYTIME = document.getElementById("anytime").checked;
     isReturn = document.querySelector('input[name="single-return"]:checked').value == "return";
     isFirst = document.querySelector('input[name="standard-first"]:checked').value == "first";
-    cap = Number(document.getElementById("congestion").value);
-    numpassenger = Number(document.getElementById("passenger-no").value);
-    numchild = Number(document.getElementById("child-no").value);
+    numpassenger = Number(NUM_PASS);
+    numchild = Number(NUM_CHILD);
     railcard = convertRailcardArray();
-    document.getElementById("remove-railcard").hidden = true;
     grouptick = document.getElementById("select-group-ticket").value;
-    console.log(getTicket(distance, isReturn, isFirst, cap, numpassenger, numchild, railcard, grouptick));
+    console.log(getTicket(START_STN, END_STN, isReturn, isFirst, START_DATE, END_DATE, ANYTIME, 
+        numpassenger, numchild, railcard, grouptick));
+    reset_missed();
     document.getElementById("ticketing-info").reset();
 
 })
 
+function reset_missed(){
+    document.getElementById("remove-railcard").hidden = true;
+    document.getElementById("end-date-div").hidden = true;
+    document.getElementById("start-date").disabled = false;
+}
+
 function errorSubmit(){
     const start = document.getElementById("start-input").value;
     const end = document.getElementById("end-input").value;
-    console.log(start);
-    console.log(end);
     if (searchStation(start) == -1 || searchStation(end) == -1) {
         document.getElementById("station-name-error").hidden = false;
         document.getElementById("station-name-error").textContent = "That is not a valid station name";
@@ -261,7 +294,7 @@ function getDistanceByStation(start, end){
     let long1 = stationlist[station1].longitude;
     let long2 = stationlist[station2].longitude;
     
-    var radius = 3963;
+    var radius = 6378;
     var deglat = deg2rad(lat2-lat1);
     var deglong = deg2rad(long2 - long1);
     var a = Math.sin(deglat/2) * Math.sin(deglat / 2) + Math.cos(deg2rad(lat1)) * 
@@ -277,25 +310,146 @@ function deg2rad(deg){
 
 function convertRailcardArray(){
     let modded_railcardlist = []
+    let offpeak = checkOffpeak(new Date(document.getElementById("start-date").value), 
+    new Date(document.getElementById("end-date").value));
     for (let i=0; i<railcardlist.length; i++){
+        //checks that the offpeak and 16-17 saver railcards are actually being used during offpeak
+        if (!offpeak && (railcardlist[i].children[0].value == RAILCARDS.OFFPEAK || 
+            railcardlist[i].children[0].value == RAILCARDS.SAVER_16_17)) {
+            continue;
+        }
+        //Checks that the offpeak railcard isn't being used on an anytime ticket
+        if (document.getElementById("anytime").checked && railcardlist[i].children[0].value == RAILCARDS.OFFPEAK) {
+            continue;
+        }
         modded_railcardlist.push(railcardlist[i].children[0].value);
+        
     }
-    for (let i=0; i<modded_railcardlist.length; i++){
+    for (let i=0; i<railcardlist.length; i++){
         const dropped_rc = railcardlist.pop();
         document.getElementById("railcard-placement").removeChild(dropped_rc);        
     }
     return modded_railcardlist;
+    
 }
 
-function getTicket(distance, isReturn, isFirst, cap, numpassenger, numchild, railcard, grouptick){
+function CalcCongestion(start_location, end_location, start_date, end_date) {
+    if (start_date == null) {return -1;}
+    let cong = 0;
+    let distance = getDistanceByStation(start_location, end_location);
+    if (String(end_date) == "Invalid Date") {
+        cong = getCongestionbyDatetime(start_date, distance);
+    }
+    else {
+        cong =  0.5*(getCongestionbyDatetime(start_date, distance) + getCongestionbyDatetime(end_date, distance));
+    }
+    cong *=  getPopularityMult(start_location) * getPopularityMult(end_location)
+    return cong;
+}
+
+/**
+ * Rough and horrid guestimate of expected demand based on time of day
+ * @param {*} date The given day
+ * @param {*} distance Distance used to split long and short distance patterns
+ * @returns expected usage as % of total capacity
+ */
+function getCongestionbyDatetime(date, distance){
+    let hour = date.getHours();
+    let minute = date.getMinutes();
+    let timedec = hour + minute / 60.0;
+    //Checks for weekend
+    if (date.getDay() === 0 || date.getDay() === 6) {
+        return getWeekendExpected(date, distance);
+    }
+    if (hour < 4){
+        return 5;
+    }
+    if (hour >= 4 && hour < 6) {
+        return 10 + 20 * (timedec - 4) / (6 - 4);
+    }
+    if (hour >= 6 && hour < 9){
+        return -10/2.25 * (timedec - 7.5) * (timedec - 7.5) + 70;
+    }
+    if (distance > 100 && hour >= 9 && hour < 22) {
+        return 60 * Math.exp(-0.25 * (timedec - 9)) + 30;
+    }
+    if (hour >= 9 && hour < 16) {
+        return (30 / Math.pow(3.5,6)) * Math.pow(timedec - 12.5, 6) + 30;
+    }
+    if (hour >= 16 && hour < 19) {
+        return -10/2.25 * (timedec - 17.5) * (timedec - 17.5) + 70;
+    }
+    if (hour >= 19 && hour < 24){
+        return 60 * Math.exp((timedec-19)/1.3);
+    }
+    return 50;
+}
+
+/**
+ * Rough and horrible guestimate at train usage based on time of day during weekends
+ * @param {*} date given date
+ * @param {*} distance used to split long and short distance
+ * @returns expected usage as % of total capacity
+ */
+function getWeekendExpected(date, distance){
+    let hour = date.getHours();
+    let minute = date.getMinutes();
+    let timedec = hour + minute / 60.0;
+    if (timedec >= 6 && timedec < 22) {
+        if (distance > 100) {return (-30 / Math.pow(8,6)) * Math.pow(timedec - 14, 6) + 40;}
+        return (-10 /Math.pow(8,6)) * Math.pow(timedec - 14, 6) + 20; 
+    }
+    else {return 5;}
+
+}
+
+function checkOffpeak(date1, date2) {
+    const BAD_DATE = "Invalid Date";
+    if (String(date1) == BAD_DATE) {return true;}
+    if (date1.getDay() == 0 || date1.getDay() == 6) {
+        return true && checkOffpeak(date2, BAD_DATE)
+    }
+    if (date1.getHours() < 6) {
+        return true && checkOffpeak(date2, BAD_DATE);
+    }
+    if (date1.getHours() >= 9 && date1.getHours() < 16) {
+        return true && checkOffpeak(date2, BAD_DATE);
+    }
+    if (date1.getHours() > 19) {
+        return true && checkOffpeak(date2, BAD_DATE);
+    }
+    return false;
+}
+
+function getPopularityMult(station){
+    let avg = 0;
+    for (let i=0; i<stationlist.length; i++){
+        if (Math.sqrt(Math.log(stationlist[i].entry_exit)) > 0) {
+            avg += Math.log(Math.log(stationlist[i].entry_exit));
+        }
+    }
+    avg /= stationlist.length;
+    let popmult = Math.log(Math.log(stationlist[searchStation(station)].entry_exit))
+    if (!popmult > 0){
+        return 0.5;
+    }
+    return popmult / avg;
+}
+
+function getTicket(start_location, end_location, isReturn, isFirst, start_date, end_date, anytime, numpassenger, numchild, railcard, grouptick){
+    let distance = Number(getDistanceByStation(start_location,end_location));
+    let cap = CalcCongestion(start_location, end_location, new Date(start_date), new Date(end_date));    
     deleete(distance, isReturn, isFirst, cap, numpassenger, numchild, railcard, grouptick);
+    console.log(getContactless(start_location, end_location, true, railcard, false));
+    console.log(getContactless(start_location, end_location, false, railcard, false));
     let price = CalcBaseFare(distance);
     const FIRST = 1.5;
     const RETURN = 1.5;
     let fullmult = 1;
     if (isFirst) {fullmult *= FIRST;}
     if (isReturn) {fullmult *= RETURN;}
-    fullmult *= CalcCongestion(cap);
+    if (anytime) {fullmult *= 4.0/3.0;}
+    else {fullmult *= GetCongestionMult(cap);}
     price = price*fullmult;
     let total = 0;
     total += CalcRailcard(railcard, price);
@@ -307,6 +461,7 @@ function getTicket(distance, isReturn, isFirst, cap, numpassenger, numchild, rai
     total = total.toFixed(2);
     let outmsg = total + " ";
     if (isFirst) {outmsg = outmsg + "First class ";}
+    if (anytime) {outmsg = outmsg + "anytime ";}
     if (isReturn) {outmsg = outmsg + "return";}
     else {outmsg = outmsg + "single"}
     return outmsg;
@@ -333,10 +488,10 @@ function CalcBaseFare(x){
 }
 
 function Func(x){
-    return 0.45 + 0.2*Math.exp(0.0625*(x-50)) / (0.04*(x-50) - Math.exp(0.0625*(x-50)));
+    return 0.25 + 0.1*Math.exp(0.0625*(x-80)) / (0.04*(x-80) - Math.exp(0.0625*(x-80)));
 }
 
-function CalcCongestion(cap){
+function GetCongestionMult(cap){
     return 1.3-0.6/(Math.exp((cap-50)/10)+1);
 }
 
@@ -357,13 +512,13 @@ function CalcRailcard(railcard, price){
                 total += price * 2.0/3.0;
                 continue;
             case RAILCARDS.WORKING:
-                total += price * 3.0/4.0;
+                total += price * 2.0/3.0;
                 continue;
             case RAILCARDS.DISABILITY:
                 total += price * 1.0/3.0;
                 continue;
             default:
-                continue;
+                total += price;
         }
     }
     return total;
@@ -409,6 +564,18 @@ function searchStation(tosearch){
         }
     }
     return -1;
+}
+
+function getContactless(start_location, end_location, ispeak, railcard, ischild) {
+    let distance = Number(getDistanceByStation(start_location,end_location));
+    let price = CalcBaseFare(distance);
+    if (ispeak) { price *= 1.3; }
+    if (ischild) {price *= 0.5; }
+    else if (ispeak && (railcard[0] == RAILCARDS.SAVER_16_17 || railcard[0] == RAILCARDS.OFFPEAK)) {}
+    else if (railcard.length != 0) { price = CalcRailcard(railcard, price);}
+    price = Math.round(price*10)/10;
+    price = price.toFixed(2);
+    return price; 
 }
 
 
